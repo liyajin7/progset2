@@ -148,7 +148,7 @@ def main ():
         
         print("\nnum triangles = ",countup/6)
 
-    print("\nruntime: ", end-start, "\n\n")
+    # print("\nruntime: ", end-start, "\n\n")
 
 if __name__ == "__main__":
     main()
