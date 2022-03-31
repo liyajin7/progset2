@@ -158,8 +158,7 @@ def main ():
         iter = final.shape[0]
 
     if (flag != 3):
-        print("\nfinal matrix: \n", final, "\n\ndiagonal: ")
-    
+        #print("\nfinal matrix: \n", final, "\n\ndiagonal: ")    
         for i in range(iter):
             print(final[i][i])
     else:
@@ -169,7 +168,7 @@ def main ():
         
         print("\nnum triangles = ",countup/6)
 
-    print("\nruntime: ", end-start, "\n\n")
+    # print("\nruntime: ", end-start, "\n\n")
 
 if __name__ == "__main__":
     main()
