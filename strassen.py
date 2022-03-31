@@ -1,241 +1,102 @@
-import math, sys, time
+import math, sys, time, gc
 from typing import List
 import numpy as np
 
-# possibly use list comprehension instead of for loop?
-# result = [[sum(a*b for a,b in zip(X_row,Y_col)) for Y_col in zip(*Y)] for X_row in X]
-
-# def m_neg (m: np): # NEEDED?
-#     return [
-#         [-m[row][col] for col in range(len(m[row]))]
-#         for row in range(len(m))
-#     ]
-
-def m_add (m1: np, m2: np):
-    # print("\n\nM_ADD m1: ", m1, ", ")
-    # print("M_ADD m2: ", m2, ", ")
-
-    #return m1 + m2
-
-    n = m1.shape[0]
-
-    temp = np.zeros((n,n))
-
-    for row in range(n):
-        for col in range(n):
-            temp[row][col] = m1[row][col] + m2[row][col]
-
-    return temp
-
-    ### DOESN'T WORK BC CAN'T MUTATE M1
-    
-
-    # for row in range(n):
-    #     for col in range(n):
-    #         m1[row][col] += m2[row][col]
-
-    # print("M_ADD result: ", m1)
-    # return m1
-    # just MODIFY m1 based on m2, return m1?
-
-def m_sub (m1: np, m2: np):
-    # print("\n\nM_SUB m1: ", m1, ", ")
-    # print("M_SUB m2: ", m2, ", ")
-    
-    #return m1 - m2
-
-    n = m1.shape[0]
-
-    temp = np.zeros((n,n))
-
-    for row in range(n):
-        for col in range(n):
-            temp[row][col] = m1[row][col] - m2[row][col]
-
-    return temp
-    
-    ### DOESN'T WORK BC CAN'T MUTATE M1
-    # n = m1.shape[0]
-
-    # for row in range(n):
-    #     for col in range(n):
-    #         m1[row][col] -= m2[row][col]
-    
-    # print("M_SUB result: ", m1)
-    # return m1
-    # just MODIFY m1 based on m2, return m1?
-
-def reg_mult (m1: np, m2: np):
-    l = m1.shape[0]
+def reg_mult (a: np, b: np):
+    l = a.shape[0]
 
     r = np.zeros((l,l),dtype=int)
-    for i in range(l):
-        for j in range(l):
-            for k in range(l):
-                r[i][j] += m1[i][k] * m2[k][j]
+
+    for j in range(l):
+        for k in range(l):
+            for i in range(l):
+                r[i][j] += a[i][k] * b[k][j]
     
     return r
 
-def reg_strassens (m1: np, m2: np):
+def my_strassens (a: np, b: np):#, srow, scol):   # starting upper row/column
+    # print("\nMY_STRASSENS CALLED")
+
+    n = a.shape[0]
+
+    # print("\na and b: \n")
+    # print(a)
+    # print(b)
+    # print("lengths of a and b: ", n, "    ", b.shape[0])
+
+    if n <= 14:    # CHANGE THIS VALUE
+        # print("<<<<<<<<<<<<<<<<<<<<<<<<< reg_mult running >>>>>>>>>>>>>>>>>>>>>>>>>>")
+        # print("reg_mult running")
+        return reg_mult(a, b)
     
-    if m1.shape[0] == 1:
-        return np.array([m1[[0]]*m2[[0]]])   # need to check return value here
+    elif n % 2 != 0: #math.log2(n).is_integer(): # just has to be a power of 2!
+        # print(">>>>>>>>>>> RUNNING PADDER")
+        return (my_strassens(np.pad(a, ((0,1),(0,1)), 'constant'), np.pad(b, ((0,1),(0,1)), 'constant')))[:n,:n]
+    
     else:
-        n = m1.shape[0]
-
+        # print(">>>>>>>>>>> RUNNING REG STRASSENS")
+        
+        n = a.shape[0]
+     
         mid = n // 2   # changed for odd number matrices
 
-        # print("\n\nn: ", n, "\nmid: ", mid)
-
-        # print("!! reg_strassens m1/m2: \n", m1, "\n\n", m2)
-
-        new_matrix = np.zeros((n,n), dtype = int)     # could possibly do this in a global matrix??
-
-        ########## MOST NAIVE VERSION POSSIBLE
-
-        # a = m1[:mid, :mid]
-        # b = m1[:mid, mid:]
-        # c = m1[mid:, :mid]
-        # d = m1[mid:, mid:]
-        # e = m2[:mid, :mid]
-        # f = m2[:mid, mid:]
-        # g = m2[mid:, :mid]
-        # h = m2[mid:, mid:]
-
-        # p1 = reg_strassens(a, m_sub(f,h))
-        # p2 = reg_strassens(m_add(a,b),h)
-        # p3 = reg_strassens(m_add(c,d),e)
-        # p4 = reg_strassens(d, m_sub(g,e))
-        # p5 = reg_strassens(m_add(a,d), m_add(e,h))
-        # p6 = reg_strassens(m_sub(b,d), m_add(g,h))
-        # p7 = reg_strassens(m_sub(c,a), m_add(e,f))
-
+        result_mtx = np.zeros((n,n), dtype = int)     # could possibly do this in a global matrix??
         ######### MOST EXPANDED VERSION POSSIBLE 
 
-        # print("\n>>>> top left running")
-        new_matrix[:mid, :mid] = m_sub(m_add(m_add(reg_strassens(m_add(m1[:mid, :mid],m1[mid:, mid:]), m_add(m2[:mid, :mid],m2[mid:, mid:])),reg_strassens(m_sub(m1[:mid, mid:],m1[mid:, mid:]), m_add(m2[mid:, :mid],m2[mid:, mid:]))),reg_strassens(m1[mid:, mid:], m_sub(m2[mid:, :mid],m2[:mid, :mid]))),reg_strassens(m_add(m1[:mid, :mid],m1[:mid, mid:]),m2[mid:, mid:])) #m_add(m_add(m_sub(p4,p2),p5),p6)
+        p_temp = np.zeros((mid,mid), dtype = int)
+        # print("p_temp size: ", p_temp.shape[0])
 
-        # print("\n>>>> top right running")
-        new_matrix[:mid, mid:] = m_add(reg_strassens(m1[:mid, :mid], m_sub(m2[:mid, mid:],m2[mid:, mid:])),reg_strassens(m_add(m1[:mid, :mid],m1[:mid, mid:]),m2[mid:, mid:]))
+        p_temp = my_strassens(a[:mid, :mid], np.subtract(b[:mid, mid:], b[mid:, mid:]))
+        # top right
+        result_mtx[:mid, mid:] = np.add(result_mtx[:mid, mid:], p_temp)
+        # bottom right
+        result_mtx[mid:, mid:] = np.add(result_mtx[mid:, mid:], p_temp)
 
-        # print("\n>>>> bottom left running")
-        new_matrix[mid:, :mid] = m_add(reg_strassens(m_add(m1[mid:, :mid],m1[mid:, mid:]),m2[:mid, :mid]),reg_strassens(m1[mid:, mid:], m_sub(m2[mid:, :mid],m2[:mid, :mid])))
+        # p2
+        p_temp = my_strassens(np.add(a[:mid, :mid], a[:mid, mid:]), b[mid:, mid:])
+        # top left
+        result_mtx[:mid, :mid] = np.subtract(result_mtx[:mid, :mid], p_temp)
+        # top right
+        result_mtx[:mid, mid:] = np.add(result_mtx[:mid, mid:], p_temp)
 
-        # print("\n>>>> bottom right running")
-        new_matrix[mid:, mid:] = m_sub(m_add(m_add(reg_strassens(m_add(m1[:mid, :mid],m1[mid:, mid:]), m_add(m2[:mid, :mid],m2[mid:, mid:])),reg_strassens(m_sub(m1[mid:, :mid],m1[:mid, :mid]), m_add(m2[:mid, :mid],m2[:mid, mid:]))),reg_strassens(m1[:mid, :mid], m_sub(m2[:mid, mid:],m2[mid:, mid:]))),reg_strassens(m_add(m1[mid:, :mid],m1[mid:, mid:]),m2[:mid, :mid]))
+        # p3
+        p_temp = my_strassens(np.add(a[mid:, :mid], a[mid:, mid:]), b[:mid, :mid])
+        # bottom left
+        result_mtx[mid:, :mid] = np.add(result_mtx[mid:, :mid], p_temp)
+        # bottom right
+        result_mtx[mid:, mid:] = np.subtract(result_mtx[mid:, mid:], p_temp)
 
+        # p4
+        p_temp = my_strassens(a[mid:, mid:], np.subtract(b[mid:, :mid], b[:mid, :mid]))
+        # top left
+        result_mtx[:mid, :mid] = np.add(result_mtx[:mid, :mid], p_temp)
+        # bottom left
+        result_mtx[mid:, :mid] = np.add(result_mtx[mid:, :mid], p_temp)
 
+        # p5
+        p_temp = my_strassens(np.add(a[:mid, :mid],a[mid:, mid:]), np.add(b[:mid, :mid],b[mid:, mid:]))
+        # top left
+        result_mtx[:mid, :mid] = np.add(result_mtx[:mid, :mid], p_temp)
+        # bottom right
+        result_mtx[mid:, mid:] = np.add(result_mtx[mid:, mid:], p_temp)
 
-        # print("\n>>>> top left running")
-        # new_matrix[:mid, :mid] = m_sub(m_add(m_add(p5,p6),p4),p2) #m_add(m_add(m_sub(p4,p2),p5),p6)
+        # p6
+        p_temp = my_strassens(np.subtract(a[:mid, mid:],a[mid:, mid:]), np.add(b[mid:, :mid],b[mid:, mid:]))
+        # top left
+        result_mtx[:mid, :mid] = np.add(result_mtx[:mid, :mid], p_temp)
 
-        # print("\n>>>> top right running")
-        # new_matrix[:mid, mid:] = m_add(p1,p2)
+        # p7
+        p_temp = my_strassens(np.subtract(a[mid:, :mid],a[:mid, :mid]), np.add(b[:mid, :mid],b[:mid, mid:]))
+        # bottom right
+        result_mtx[mid:, mid:] = np.add(result_mtx[mid:, mid:], p_temp)
 
-        # print("\n>>>> bottom left running")
-        # new_matrix[mid:, :mid] = m_add(p3,p4)
+        del p_temp
+        gc.collect()
 
-        # print("\n>>>> bottom right running")
-        # new_matrix[mid:, mid:] = m_sub(m_add(m_add(p5,p7),p1),p3)
-
-
-        
-        ######## SUPER LONG VERSION, ALL DONE IN ONE
-
-        # # top left
-        # print(">> top left running")
-        # # P4 - P2 + P5 + P6
-        # new_matrix[:mid, :mid] = m_add(m_add(m_sub(reg_strassens(d, m_sub(g,e)), reg_strassens(m_add(a,b), h)), reg_strassens(m_add(a,d), m_add(e,h))), reg_strassens(m_sub(b,d), m_add(g,h)))
-        # # WIP new_matrix[:mid, :mid] = m_add(m_add(m_sub(reg_strassens(m1[mid:, mid:], m_sub(m2[mid:, :mid],m2[:mid, :mid])), reg_strassens(m_add(m1[:mid, :mid],b), h)), reg_strassens(m_add(m1[:mid, :mid],m1[mid:, mid:]), m_add(m2[:mid, :mid],h))), reg_strassens(m_sub(b,m1[mid:, mid:]), m_add(m2[mid:, :mid],h)))
-        
-        # print(">> top right running")
-        # # P1 + P2
-        # new_matrix[:mid, mid:] = m_add(reg_strassens(a,m_sub(f,h)), reg_strassens(m_add(a,b),h))
-        # # WIP new_matrix[:mid, mid:] = m_add(reg_strassens(m1[:mid, :mid],m_sub(f,h)), reg_strassens(m_add(m1[:mid, :mid],b),h))
-        
-        # print(">> bottom left running")
-        # new_matrix[mid:, :mid] = m_add(reg_strassens(m_add(c,d),e), reg_strassens(d,m_sub(g,e)))
-        # # WIP new_matrix[mid:, :mid] = m_add(reg_strassens(m_add(c,m1[mid:, mid:]),m2[:mid, :mid]), reg_strassens(m1[mid:, mid:],m_sub(m2[mid:, :mid],m2[:mid, :mid])))
-        
-        # print(">> bottom right running")
-        # # P1 - P3 + P5 + P7
-        # new_matrix[mid:, mid:] = m_add(m_add(m_sub(reg_strassens(a, m_sub(f,h)), reg_strassens(m_add(c,d),e)), reg_strassens(m_add(a,d), m_add(e,h))), reg_strassens(m_sub(c,a), m_add(e,f)))
-        # # WIP new_matrix[mid:, mid:] = m_add(m_add(m_sub(reg_strassens(m1[:mid, :mid], m_sub(f,h)), reg_strassens(m_add(c,m1[mid:, mid:]),m2[:mid, :mid])), reg_strassens(m_add(m1[:mid, :mid],m1[mid:, mid:]), m_add(m2[:mid, :mid],h))), reg_strassens(m_sub(c,m1[:mid, :mid]), m_add(m2[:mid, :mid],f)))
-        
-        # new_matrix[:mid, :mid] = m_add(
-        #                 m_sub(
-        #                     m_add(
-        #                             reg_strassens (m_add(m1[:mid, :mid],m1[mid:, mid:]), m_add(m2[:mid, :mid],m2[mid:, mid:])), #t5
-        #                                 reg_strassens (m1[mid:, mid:], m_sub(m2[mid:, :mid], m2[:mid, :mid])) ),   #t4
-        #                                 reg_strassens (m_add(m1[:mid, :mid],m1[:mid, mid:]),m2[mid:, mid:])    #t2
-                                        
-        #                                 ),
-        #                             reg_strassens (m_sub(m1[:mid, mid:],m1[mid:, mid:]),m_add(m2[mid:, :mid],m2[mid:, mid:]))     #t6
-        #                             )
-
-        # # top right
-        # print(" >> top right running")
-        # new_matrix[:mid, mid:] = m_add(
-        #                 reg_strassens (m1[:mid, :mid], m_sub(m2[:mid, mid:],m2[mid:, mid:])),
-        #                 reg_strassens (m_add(m1[:mid, :mid],m1[:mid, mid:]), m2[mid:, mid:])
-        #                 )
-        
-        # # bottom left
-        # print(" >> bottom left running")
-        # new_matrix[mid:, :mid] = m_add (reg_strassens(m_add(m1[mid:, :mid],m1[mid:, mid:]),m2[:mid, :mid]), reg_strassens(m1[mid:, mid:], m_sub(m2[mid:, :mid],m2[:mid, :mid])))
-        
-        # # bottom right
-        # print(" >> bottom right running")
-        # new_matrix[mid:, mid:] = m_sub(
-        #                     m_sub(
-        #                             m_add  (reg_strassens(m1[:mid, :mid], m_sub(m2[:mid, mid:],m2[mid:, mid:])),    #t1
-                                            
-        #                                     reg_strassens(m_add(m1[:mid, :mid],m1[mid:, mid:]), m_add(m2[:mid, :mid],m2[mid:, mid:])),     #t5
-
-        #                             reg_strassens(m_add(m1[mid:, :mid],m1[mid:, mid:]), m2[:mid, :mid])   # t3
-        #                         ),
-        #                     reg_strassens(m_sub(m1[:mid, :mid],m1[mid:, :mid]), m_add(m2[:mid, :mid],m2[:mid, mid:])) # t7
-
-        #                 )
-        #             )
-
-        # ## wrong??
-        # for i in range(len(top_right)):
-        #     new_matrix.append(top_left[i] + top_right[i])
-        # for i in range(len(bottom_right)):
-        #     new_matrix.append(bottom_left[i] + bottom_right[i])
-
-        return new_matrix
-
-def my_strassens (m1: np, m2: np):#, srow, scol):   # starting upper row/column
-    n = m1.shape[0]
-
-    if n <= 1000:    # @LIYA NEED TO CHANGE THIS VALUE!
-        reg_mult(m1, m2)
-    else:
-        n = m1.shape[0]
-
-        mid = n // 2   # changed for odd number matrices
-
-        new_matrix = np.zeros((n,n), dtype = int)     # could possibly do this in a global matrix??
-        ######### MOST EXPANDED VERSION POSSIBLE 
-
-        # print("\n>>>> top left running")
-        new_matrix[:mid, :mid] = m_sub(m_add(m_add(my_strassens(m_add(m1[:mid, :mid],m1[mid:, mid:]), m_add(m2[:mid, :mid],m2[mid:, mid:])),my_strassens(m_sub(m1[:mid, mid:],m1[mid:, mid:]), m_add(m2[mid:, :mid],m2[mid:, mid:]))),my_strassens(m1[mid:, mid:], m_sub(m2[mid:, :mid],m2[:mid, :mid]))),my_strassens(m_add(m1[:mid, :mid],m1[:mid, mid:]),m2[mid:, mid:])) #m_add(m_add(m_sub(p4,p2),p5),p6)
-
-        # print("\n>>>> top right running")
-        new_matrix[:mid, mid:] = m_add(my_strassens(m1[:mid, :mid], m_sub(m2[:mid, mid:],m2[mid:, mid:])),my_strassens(m_add(m1[:mid, :mid],m1[:mid, mid:]),m2[mid:, mid:]))
-
-        # print("\n>>>> bottom left running")
-        new_matrix[mid:, :mid] = m_add(my_strassens(m_add(m1[mid:, :mid],m1[mid:, mid:]),m2[:mid, :mid]),my_strassens(m1[mid:, mid:], m_sub(m2[mid:, :mid],m2[:mid, :mid])))
-
-        # print("\n>>>> bottom right running")
-        new_matrix[mid:, mid:] = m_sub(m_add(m_add(my_strassens(m_add(m1[:mid, :mid],m1[mid:, mid:]), m_add(m2[:mid, :mid],m2[mid:, mid:])),my_strassens(m_sub(m1[mid:, :mid],m1[:mid, :mid]), m_add(m2[:mid, :mid],m2[:mid, mid:]))),my_strassens(m1[:mid, :mid], m_sub(m2[:mid, mid:],m2[mid:, mid:]))),my_strassens(m_add(m1[mid:, :mid],m1[mid:, mid:]),m2[:mid, :mid]))
-
-        return new_matrix
+        return result_mtx
 
 
-# global matrix for final output, but @LIYA would require figuring out how to store current index within final
+# global matrix for final output, but would require figuring out how to store current index within final
 # final = np.array([[]], dtype = int)
 
 def main ():
@@ -266,8 +127,10 @@ def main ():
 
     m1 = np.array(m1_temp)
     m2 = np.array(m2_temp)
-    
-    # convert lists to numpy arrays!!!
+
+    # print(m1)
+    # print(m2)
+    # print("\n len m1: ", m1.shape[0], "\n len m2: ", m2.shape[0])
 
     final = np.zeros((dim,dim), dtype = int)
 
@@ -276,20 +139,37 @@ def main ():
         # run variant strassens
         final = my_strassens(m1, m2)
     elif (flag == 1):
-        # run regular strassens
-        final = reg_strassens(m1, m2)
-    elif (flag == 2):
-        # run regular matrix mult
         final = reg_mult(m1, m2)
+    # elif (flag == 2):
+    #     final = reg_strassens(m1, m2)
+    elif (flag == 3):
+        # print("m1: \n", m1)
+        # print("m2: \n", m2)
+        
+        a = my_strassens(m1,m2)
+        # print("first product: \n", a)
+        final = my_strassens(a, m1)
     end = time.time()
 
-    print("\nfinal matrix: \n", final, "\ndiagonal: \n")
+    iter = 0
+    if not math.log2(m1.shape[0]).is_integer():
+        iter = m1.shape[0]
+    else:
+        iter = final.shape[0]
+
+    if (flag != 3):
+        print("\nfinal matrix: \n", final, "\n\ndiagonal: ")
     
-    for i in range(final.shape[0]):
-        print(final[i][i])
+        for i in range(iter):
+            print(final[i][i])
+    else:
+        countup = 0
+        for i in range(iter):
+            countup += final[i][i]
+        
+        print("\nnum triangles = ",countup/6)
 
     print("\nruntime: ", end-start, "\n\n")
 
-if __name__ == "__main__":  # runs when file is run in the terminal
+if __name__ == "__main__":
     main()
-    # put biggest command here!!
