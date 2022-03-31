@@ -24,7 +24,7 @@ def my_strassens (a: np, b: np):#, srow, scol):   # starting upper row/column
     # print(b)
     # print("lengths of a and b: ", n, "    ", b.shape[0])
 
-    if n <= 14:    # CHANGE THIS VALUE
+    if n <= 11:    # CHANGE THIS VALUE
         # print("<<<<<<<<<<<<<<<<<<<<<<<<< reg_mult running >>>>>>>>>>>>>>>>>>>>>>>>>>")
         # print("reg_mult running")
         return reg_mult(a, b)
@@ -168,7 +168,7 @@ def main ():
         
         print("\nnum triangles = ",countup/6)
 
-    # print("\nruntime: ", end-start, "\n\n")
+    print("\nruntime: ", end-start, "\n\n")
 
 if __name__ == "__main__":
     main()
